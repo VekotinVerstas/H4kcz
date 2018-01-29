@@ -1,3 +1,11 @@
+/**************************************************************************************
+   Sketch to report door magnetic sensor state via MQTT.
+   Copyright 2017 Aki Salminen / Vekotinverstas / MIT license
+
+   The idea is to read door1 and door2 ports and report any change to MQTT & serial and auto recover from connection failures.
+ 
+ **************************************************************************************/
+
 #include <stdio.h>
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
@@ -7,7 +15,7 @@
 #include "settings.h"
 
 #define DOOR1 D2
-#define DOOR2 D3
+#define DOOR2 D5
 #define SENSOR_TYPE "door sensor"
 
 static char esp_id[16];
@@ -29,12 +37,12 @@ void setup() {
 
   pinMode(DOOR1, INPUT_PULLUP);        // sets the digital pin 0 as input
   pinMode(DOOR2, INPUT_PULLUP);        // sets the digital pin 0 as input
-
 }
 
 static void mqtt_send(const char *topic, int value, const char *unit)
 {
-    wifiManager.autoConnect(esp_id, "vekotin2017");  // Make sure we have wifi and if not try to get some wifi
+		// Make sure we have wifi and if not try to get some wifi. If we do not have saved wifi settings create accespoint with esp_id and wifi_pw ( at first run login to ap and save wifi settings ).
+    wifiManager.autoConnect(esp_id, WIFI_PASSWORD);   
     Serial.println(mqttClient.connected());
     if (!mqttClient.connected()) {
         mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
@@ -43,7 +51,6 @@ static void mqtt_send(const char *topic, int value, const char *unit)
     if (mqttClient.connected()) {
         char string[64];
         char full_topic[64];
-        //snprintf(string, sizeof(string), "%d %s", value, unit);
         snprintf(string, sizeof(string), "%d", value);
         snprintf(full_topic, sizeof(full_topic), "%s/%s/%s/%s", topic, esp_id, SENSOR_TYPE, unit);
         Serial.print("Publishing ");
@@ -58,7 +65,6 @@ static void mqtt_send(const char *topic, int value, const char *unit)
 
 void loop() {
   uint8_t door_status_new=0;
-  // put your main code here, to run repeatedly:
   door_status_new = digitalRead(DOOR1);
   door_status_new += digitalRead(DOOR2)*2;
   if( door_status != door_status_new ) {

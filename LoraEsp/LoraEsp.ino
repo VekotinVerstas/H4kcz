@@ -4,7 +4,7 @@
 // Copyright (c) 2015 Thomas Telkamp and Matthijs Kooijman
 
 #include <Arduino.h>
-#include "lmic.h"
+#include <lmic.h> /* Kirjaston oletuksena lorabase.h:ssa MAX_LEN_FRAME = 64 muutettava 128:si */
 #include <hal/hal.h>
 #include <SPI.h>
 #include <SSD1306Wire.h>
@@ -107,9 +107,8 @@ void do_send(osjob_t* j){
         Serial.print("TEMP:");
         Serial.println(temp, DEC);
     }
-
-    static char message[] = "Hello World!";
-    snprintf(message, sizeof(message), "{\"chipid\":%s,\"sensor\":\"BKS\",\"millis\":%d,\"data\":[\"%s\\
+    char message[110];
+    snprintf(message, strlen(message), "{\"chipid\":%s,\"sensor\":\"BKS\",\"millis\":%d,\"data\":[\"%s\\
 ",%d,\"_\",0,\"_\",0]}", esp_id, millis(), "co2", co2 );
 
     // Check if there is not a current TX/RX job running
@@ -117,7 +116,7 @@ void do_send(osjob_t* j){
         Serial.println(F("OP_TXRXPEND, not sending"));
     } else {
         // Prepare upstream data transmission at the next possible time.
-        LMIC_setTxData2(1, (uint8_t*)message, sizeof(message)-1, 0);
+        LMIC_setTxData2(1, (uint8_t *)message, sizeof(message)-1, 0);
         Serial.println(F("Sending uplink packet..."));
         digitalWrite(LEDPIN, HIGH);
         display.clear();

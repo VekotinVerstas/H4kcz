@@ -78,10 +78,10 @@ static u1_t DEVEUI[16] = { 0x60, 0x45, 0xb1, 0x6b, 0x4d, 0x99, 0xac, 0x85 };
 
 static u4_t DEVADDR = 0xe064c38e;   // Put here the device id in hexadecimal form.
 
-void os_getDevEui (u1_t* buf) { memcpy_P(buf, DEVEUI, 8); }
-void os_getArtEui (u1_t* buf) { }
-//void os_getDevEui (u1_t* buf) { }
-void os_getDevKey (u1_t* buf) { }
+void os_getDevEui(u1_t* buf) { memcpy_P(buf, DEVEUI, 8); }
+void os_getArtEui(u1_t* buf) { }
+//void os_getDevEui(u1_t* buf) { }
+void os_getDevKey(u1_t* buf) { }
 
 static osjob_t sendjob;
 
@@ -189,6 +189,7 @@ void printESPRevision() {
 
 void setup() {
     Serial.begin(115200);
+    sensor.begin(9600, SERIAL_8N1, 14, 12);
     delay(1500);   // Give time for the seral monitor to start up
     Serial.println(F("Starting..."));
 

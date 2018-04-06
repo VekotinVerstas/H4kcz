@@ -1,21 +1,16 @@
-/**************************************************************************************
-   Sketch to report door magnetic sensor state via MQTT.
-   Copyright 2017 Aki Salminen / Vekotinverstas / MIT license
-
-   The idea is to read door1 and door2 ports and report any change to MQTT & serial and auto recover from connection failures.
- 
- **************************************************************************************/
-
+#include <Bounce2.h>
 #include <stdio.h>
-#include <Arduino.h>
+//#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <WiFiManager.h>
 #include <PubSubClient.h>
 
 #include "settings.h"
 
-#define DOOR1 D2
-#define DOOR2 D5
+#define DOOR1 D6
+#define DOOR2 D7
+#define DOOR3 D5
+#define LED_PIN D1
 #define SENSOR_TYPE "door sensor"
 
 static char esp_id[16];
@@ -37,12 +32,15 @@ void setup() {
 
   pinMode(DOOR1, INPUT_PULLUP);        // sets the digital pin 0 as input
   pinMode(DOOR2, INPUT_PULLUP);        // sets the digital pin 0 as input
+  pinMode(DOOR3, INPUT_PULLUP);
+  pinMode(LED_PIN, OUTPUT);
 }
 
 static void mqtt_send(const char *topic, int value, const char *unit)
 {
-		// Make sure we have wifi and if not try to get some wifi. If we do not have saved wifi settings create accespoint with esp_id and wifi_pw ( at first run login to ap and save wifi settings ).
+    // Make sure we have wifi and if not try to get some wifi. If we do not have saved wifi settings create accespoint with esp_id and wifi_pw ( at first run login to ap and save wifi settings ).
     wifiManager.autoConnect(esp_id, WIFI_PASSWORD);   
+    Serial.println(mqttClient.connected());
     if (!mqttClient.connected()) {
         mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
         mqttClient.connect(esp_id, MQTT_USER, MQTT_PASSWORD);
@@ -63,12 +61,20 @@ static void mqtt_send(const char *topic, int value, const char *unit)
 
 void loop() {
   uint8_t door_status_new=0;
+  if(digitalRead(DOOR3) == LOW) {
+    digitalWrite(LED_PIN, HIGH);
+  }
+  else {
+    digitalWrite(LED_PIN, LOW);
+  }
   door_status_new = digitalRead(DOOR1);
   door_status_new += digitalRead(DOOR2)*2;
+  door_status_new += digitalRead(DOOR3)*4;
   if( door_status != door_status_new ) {
     door_status = door_status_new;
     Serial.print("Ovien tila: " );
     Serial.println( door_status );
+    
     mqtt_send(MQTT_TOPIC, door_status, "door");
   }
 }

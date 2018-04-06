@@ -43,22 +43,20 @@ static void mqtt_send(const char *topic, int value, const char *unit)
 {
 		// Make sure we have wifi and if not try to get some wifi. If we do not have saved wifi settings create accespoint with esp_id and wifi_pw ( at first run login to ap and save wifi settings ).
     wifiManager.autoConnect(esp_id, WIFI_PASSWORD);   
-    Serial.println(mqttClient.connected());
     if (!mqttClient.connected()) {
         mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
         mqttClient.connect(esp_id, MQTT_USER, MQTT_PASSWORD);
     }
     if (mqttClient.connected()) {
-        char string[64];
-        char full_topic[64];
-        snprintf(string, sizeof(string), "%d", value);
-        snprintf(full_topic, sizeof(full_topic), "%s/%s/%s/%s", topic, esp_id, SENSOR_TYPE, unit);
+        char jsonValue[256];
+        //{"chipid":2057786,"sensor":"button","millis":964606330,"data":["door",25.21948,"_",0,"_",0]}
+        snprintf(jsonValue, sizeof(jsonValue), "{\"chipid\":%s,\"sensor\":\"button\",\"millis\":%d,\"data\":[\"%s\",%d,\"_\",0,\"_\",0]}", esp_id, millis(), unit, value );
         Serial.print("Publishing ");
-        Serial.print(string);
+        Serial.print(jsonValue);
         Serial.print(" to ");
-        Serial.print(full_topic);
+        Serial.print(topic);
         Serial.print("...");
-        int result = mqttClient.publish(full_topic, string, true);
+        int result = mqttClient.publish(topic, jsonValue, true);
         Serial.println(result ? "OK" : "FAIL");
     }
 }

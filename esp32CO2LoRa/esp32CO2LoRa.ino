@@ -1,6 +1,11 @@
+#include <ESP32Ticker.h>
+
 #include <lmic.h>
 #include <hal/hal.h>
-#include "mhz19.h"
+
+#include <DHT.h> //library for DHT-sensor
+
+#include "settings.h"
 
 #include <SPI.h>
 #include <SSD1306Wire.h>
@@ -8,17 +13,167 @@
 
 #define LEDPIN 2
 
+#define OLED_I2C_ADDR 0x3C
+#define OLED_RESET 16
+#define OLED_SDA 4
+#define OLED_SCL 15
+
+#define CMD_SIZE 9 
+
+Ticker secondTick;
+      int wt = 0;
+
+void wtl(){
+  wt++;
+  if (wt == 600){
+    Serial.println();
+    Serial.println("wt reset");
+    ESP.restart();
+  }
+}
+
+typedef enum {
+    START_BYTE,
+    COMMAND,
+    DATA,
+    CHECK
+} state_t;
+
+/** 
+    Prepares a command buffer to send to an mhz19.
+    @param data tx data
+    @param buffer the tx buffer to fill
+    @param size the size of the tx buffer
+    @return number of bytes in buffer
+*/
+int prepare_tx(uint8_t cmd, const uint8_t *data, uint8_t buffer[], int size)
+{
+    if (size < CMD_SIZE) {
+        return 0;
+    }
+
+    // create command buffer
+    buffer[0] = 0xFF;
+    buffer[1] = 0x01;
+    buffer[2] = cmd;
+    for (int i = 3; i < 8; i++) {
+        buffer[i] = *data++;
+    }
+
+    // calculate checksum
+    uint8_t check = 0;
+    for (int i = 0; i < 8; i++) {
+        check += buffer[i];
+    }
+    buffer[8] = 255 - check;
+
+    return CMD_SIZE;
+}
+
+/**
+    Processes one received byte.
+    @param b the byte
+    @param cmd the command code
+    @param data the buffer to contain a received message
+    @return true if a full message was received, false otherwise
+ */
+bool process_rx(uint8_t b, uint8_t cmd, uint8_t data[])
+{
+    static uint8_t check = 0;
+    static int idx = 0;
+    static int len = 0;
+    static state_t state = START_BYTE;
+
+    // update checksum
+    check += b;
+
+    switch (state) {
+    case START_BYTE:
+        if (b == 0xFF) {
+            check = 0;
+            state = COMMAND;
+        }
+        break;
+    case COMMAND:
+        if (b == cmd) {
+            idx = 0;
+            len = 6;
+            state = DATA;
+        } else {
+            state = START_BYTE;
+            process_rx(b, cmd, data);
+        }
+        break;
+    case DATA:
+        data[idx++] = b;
+        if (idx == len) {
+            state = CHECK;
+        }
+        break;
+    case CHECK:
+        state = START_BYTE;
+        return (check == 0);
+    default:
+        state = START_BYTE;
+        break;
+    }
+
+    return false;
+}
+
+static char esp_id[16];
+
+unsigned int counter = 0;
+
+SSD1306Wire display (OLED_I2C_ADDR, OLED_SDA, OLED_SCL);
+
+HardwareSerial sensor(1); //  rxPin = 9; txPin = 10;
+
+static bool exchange_command(uint8_t cmd, uint8_t data[], int timeout)
+{
+    // create command buffer
+    uint8_t buf[9];
+    int len = prepare_tx(cmd, data, buf, sizeof(buf));
+
+    // send the command
+    sensor.write(buf, len);
+
+    // wait for response
+    long start = millis();
+    while ((millis() - start) < timeout) {
+        if (sensor.available() > 0) {
+            uint8_t b = sensor.read();
+            if (process_rx(b, cmd, data)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+static bool read_temp_co2(int *co2, int *temp)
+{
+    uint8_t data[] = {0, 0, 0, 0, 0, 0};
+    bool result = exchange_command(0x86, data, 3000);
+    if (result) {
+        *co2 = (data[0] << 8) + data[1];
+        *temp = data[2] - 40;
+#if 1
+        char raw[32];
+        sprintf(raw, "RAW: %02X %02X %02X %02X %02X %02X", data[0], data[1], data[2], data[3], data[4], data[5]);
+        Serial.println(raw);
+#endif
+    }
+    return result;
+}
+bool process_rx(uint8_t b, uint8_t cmd, uint8_t data[]);
+int prepare_tx(uint8_t cmd, const uint8_t *data, uint8_t buffer[], int size);
 /*************************************
  * TODO: Change the following keys
  * NwkSKey: network session key, AppSKey: application session key, and DevAddr: end-device address
  *************************************/
-static u1_t NWKSKEY[16] = { 0x05, 0x23, 0x24, 0xc3, 0x46, 0xed, 0xd5, 0xe2, 0xfb, 0x97, 0xdb, 0x56, 0x71, 0x8f, 0xdd, 0x86 };  // Paste here the key in MSB format
-
-static u1_t APPSKEY[16] = { 0x60, 0x02, 0x3c, 0x5f, 0xd1, 0x09, 0x8b, 0xce, 0xf7, 0x6b, 0x81, 0xd2, 0x6a, 0xce, 0x4d, 0x85 };  // Paste here the key in MSB format
-
-static u1_t DEVEUI[16] = { 0x60, 0x45, 0xb1, 0x6b, 0x4d, 0x99, 0xac, 0x85 };
-
-static u4_t DEVADDR = 0xe064c38e;   // Put here the device id in hexadecimal form.
+//These are in settings
 
 void os_getDevEui(u1_t* buf){ memcpy_P(buf, DEVEUI, 8); }
 void os_getArtEui (u1_t* buf) { }
@@ -42,6 +197,7 @@ const lmic_pinmap lmic_pins = {
 
 void do_send(osjob_t* j){
     // Payload to send (uplink)
+    delay(300000);    
     int co2, temp;
     if (read_temp_co2(&co2, &temp)) {
         Serial.print("CO2:");
@@ -59,23 +215,29 @@ void do_send(osjob_t* j){
         Serial.println(F("OP_TXRXPEND, not sending"));
     } else {
         // Prepare upstream data transmission at the next possible time.
-        LMIC_setTxData2(1, (uint8_t*)message, sizeof(message)-1, 0);
+        LMIC_setTxData2(1, (uint8_t*)message, strlen(message)-1, 0);
         Serial.println(F("Sending uplink packet..."));
         digitalWrite(LEDPIN, HIGH);
+        display.clear();
+        display.drawString (0, 0, "Sending uplink packet...");
+        display.drawString (0, 50, String (++counter));
+        display.display ();
        
     }
     // Next TX is scheduled after TX_COMPLETE event.
+    
 }
 
 void onEvent (ev_t ev) {
     if (ev == EV_TXCOMPLETE) {
-     
+        display.clear();
+        display.drawString (0, 0, "EV_TXCOMPLETE event!");
 
 
         Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
         if (LMIC.txrxFlags & TXRX_ACK) {
           Serial.println(F("Received ack"));
-         
+          display.drawString (0, 20, "Received ACK.");
         }
 
         if (LMIC.dataLen) {
@@ -85,17 +247,18 @@ void onEvent (ev_t ev) {
           Serial.write(LMIC.frame+LMIC.dataBeg, LMIC.dataLen);
           Serial.println();
 
-         
+          display.drawString (0, 20, "Received DATA.");
           for ( i = 0 ; i < LMIC.dataLen ; i++ )
             TTN_response[i] = LMIC.frame[LMIC.dataBeg+i];
           TTN_response[i] = 0;
-        
+          display.drawString (0, 32, String(TTN_response));
         }
 
         // Schedule next transmission
         os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
         digitalWrite(LEDPIN, LOW);
-   
+        display.drawString (0, 50, String (counter));
+        display.display ();
     }
 }
 
@@ -126,6 +289,7 @@ void printESPRevision() {
 
 void setup() {
     Serial.begin(115200);
+    secondTick.attach(1,wtl);
     sensor.begin(9600, SERIAL_8N1, 23, 22);
     delay(1500);   // Give time for the seral monitor to start up
     Serial.println(F("Starting..."));
@@ -141,7 +305,20 @@ void setup() {
     // Use the Blue pin to signal transmission.
     pinMode(LEDPIN,OUTPUT);
 
+   // reset the OLED
+   pinMode(OLED_RESET,OUTPUT);
+   digitalWrite(OLED_RESET, LOW);
+   delay(50);
+   digitalWrite(OLED_RESET, HIGH);
 
+   display.init ();
+   display.flipScreenVertically ();
+   display.setFont (ArialMT_Plain_10);
+
+   display.setTextAlignment (TEXT_ALIGN_LEFT);
+
+   display.drawString (0, 0, "Init!");
+   display.display ();
 
     // LMIC init
     os_init();
@@ -186,6 +363,8 @@ void setup() {
 
     // Start job
     do_send(&sendjob);
+
+    
 }
 
 void loop() {

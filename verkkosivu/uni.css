@@ -64,7 +64,7 @@ body{
 .special2 {
     font-size: 20px;
 	float:left;
-	margin-left: 2%;
+	
 }
 /* When you mouse over the navigation links, change their color */
 .sidenav a:hover {
@@ -79,8 +79,27 @@ body{
     font-size: 36px;
     margin-left: 50px;
 }
-@media screen and (max-height: 450px) {
-
+@media only screen and (max-width: 408px) {
+	.special2 {
+    font-size: 20px;
+		width: 80%;
+	float:left;
+	
+}
+	#kuva2{
+		width: 80%;
+	display: none;
+}
+	
+#kuva1{
+	width: 80%;
+	display: block;
+}
+.special {
+    font-size: 35px;
+	float:right;
+	
+}
 }
 .myth{
    color: white;

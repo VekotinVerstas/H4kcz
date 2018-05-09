@@ -1,0 +1,114 @@
+body{
+	margin: 0;
+	background-color: #262626;
+}
+
+#navbar {
+	box-shadow: 0 0 20px #000;
+	overflow: hidden;
+	background-color:#131313;
+	font-family: 'Barlow Condensed', sans-serif;
+	
+
+	
+}
+
+#navbar a {
+	cursor: pointer;
+	display: block;
+	color: white;
+	text-align: center;
+	text-decoration: none;
+	
+	padding: 25px 0px;
+	font-family: 'Barlow Condensed', sans-serif;
+			}
+#navbar a:hover {
+	
+	color: 	#1C86EE;
+	
+}
+
+#navbar a.active {
+	background-color:#5C5C5C;
+	color: white;
+}
+.sidenav {
+	box-shadow: 0 0 20px #000;
+    height: 100%; /* 100% Full-height */
+    width: 0; /* 0 width - change this with JavaScript */
+    position: fixed; /* Stay in place */
+    z-index: 1; /* Stay on top */
+    top: 0; /* Stay at the top */
+    right: 0;
+    background-color:#2B2B2B; 
+    overflow-x: hidden; /* Disable horizontal scroll */
+    padding-top: 60px; /* Place content 60px from the top */
+    transition: 0.5s; /* 0.5 second transition effect to slide in the sidenav */
+}
+
+/* The navigation menu links */
+.sidenav a {
+    padding: 8px 8px 8px 32px;
+    text-decoration: none;
+    font-size: 25px;
+    color: white;
+    display: block;
+    transition: 0.3s;
+}
+.special {
+    font-size: 45px;
+	float:right;
+	margin-right: 4%;
+}
+.special2 {
+    font-size: 20px;
+	float:left;
+	
+}
+/* When you mouse over the navigation links, change their color */
+.sidenav a:hover {
+    color: #1C86EE;
+}
+
+/* Position and style the close button (top right corner) */
+.sidenav .closebtn {
+    position: absolute;
+    top: 0;
+    right: 25px;
+    font-size: 36px;
+    margin-left: 50px;
+}
+@media only screen and (max-width: 408px) {
+	.special2 {
+    font-size: 20px;
+		width: 80%;
+	float:left;
+	
+}
+	#kuva2{
+		width: 80%;
+	display: none;
+}
+	
+#kuva1{
+	width: 80%;
+	display: block;
+}
+.special {
+    font-size: 35px;
+	float:right;
+	
+}
+}
+.myth{
+   color: white;
+	font-family: 'Barlow Condensed', sans-serif;
+	font-size: 20px;
+}
+.kuva2{
+	display: none;
+}
+.kuva1{
+	display: block;
+}

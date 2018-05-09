@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link href="uni.css" rel="stylesheet" type="text/css">
+</head>
+<body>
+    <div id="navbar">
+  <a  class="special2" href="http://opiskelu.businesscollege.fi/s1700617/HTML/valikko/v2.0/testi2.0.html"><img id="kuva1" onmouseover="display()"  src="http://opiskelu.businesscollege.fi/s1700617/top/kaapeli_logo_rajat_pieni.png"><img class="kuva2" onmouseout="displaynone()" id="kuva2" src="http://opiskelu.businesscollege.fi/s1700617/top/kaapeli_logo_rajat_pieni_sininen.png"></a>
+  
+
+  <a class="special" onclick="openNav()"><span  > &#9776;</span></a>
+</div>
+<div id="mySidenav" class="sidenav">
+  <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+<div>
+		
+
+<table class="myth">
+<tr>
+	<th id="myth">Tila</th>
+
+</tr>
+ <tr>
+  <td><a href="#">036</a></td>
+	</tr>
+<tr>
+  <td><a href="#">037</a></td>
+	</tr>
+	<tr>
+  <td><a href="#">038</a></td>
+	</tr>
+
+</table>
+	</div>
+</div>
+
+
+     <script>
+function openNav() {
+    document.getElementById("mySidenav").style.width = "300px";
+}
+function closeNav() {
+    document.getElementById("mySidenav").style.width = "0";
+}
+</script>
+     <script>
+function display() {
+    document.getElementById("kuva1").className = "kuva2";
+	document.getElementById("kuva2").className = "kuva1";
+}
+function displaynone() {
+   document.getElementById("kuva2").className = "kuva2";
+	document.getElementById("kuva1").className = "kuva1";
+}
+</script>
+</body>
+</html> 

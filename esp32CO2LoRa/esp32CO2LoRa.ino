@@ -1,13 +1,22 @@
-#include <ESP32Ticker.h>
+#include <ArduinoJson.h>
 
 #include <lmic.h>
 #include <hal/hal.h>
 
-#include <DHT.h> //library for DHT-sensor
+#include <ESP32Ticker.h>
+
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
+#include <DHT_U.h>
+
+#include <Adafruit_Sensor.h>
+
+#include <Wire.h>
+#include <SPI.h>
+#include <Adafruit_BME280.h>
 
 #include "settings.h"
 
-#include <SPI.h>
 #include <SSD1306Wire.h>
 #include "soc/efuse_reg.h"
 
@@ -18,14 +27,25 @@
 #define OLED_SDA 4
 #define OLED_SCL 15
 
-#define CMD_SIZE 9 
+#define CMD_SIZE 9
+
+int CODE_DEBUG_LEVEL = 0;
+
+#if CODE_DEBUG_LEVEL == 1
+    Serial.println("Homma pääs läpi....");
+#endif
+
+#define DHTPIN 21    
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
 
 Ticker secondTick;
       int wt = 0;
 
+
 void wtl(){
   wt++;
-  if (wt == 600){
+  if (wt == 180){
     Serial.println();
     Serial.println("wt reset");
     ESP.restart();
@@ -48,7 +68,12 @@ typedef enum {
 */
 int prepare_tx(uint8_t cmd, const uint8_t *data, uint8_t buffer[], int size)
 {
+  
     if (size < CMD_SIZE) {
+        if(CODE_DEBUG_LEVEL == 1) {
+        Serial.println("Debug print 1.");
+        }
+
         return 0;
     }
 
@@ -58,6 +83,7 @@ int prepare_tx(uint8_t cmd, const uint8_t *data, uint8_t buffer[], int size)
     buffer[2] = cmd;
     for (int i = 3; i < 8; i++) {
         buffer[i] = *data++;
+        
     }
 
     // calculate checksum
@@ -67,6 +93,11 @@ int prepare_tx(uint8_t cmd, const uint8_t *data, uint8_t buffer[], int size)
     }
     buffer[8] = 255 - check;
 
+        if(CODE_DEBUG_LEVEL == 1) {
+        Serial.println("Debug-print 2");
+        }
+
+    
     return CMD_SIZE;
 }
 
@@ -79,6 +110,7 @@ int prepare_tx(uint8_t cmd, const uint8_t *data, uint8_t buffer[], int size)
  */
 bool process_rx(uint8_t b, uint8_t cmd, uint8_t data[])
 {
+    
     static uint8_t check = 0;
     static int idx = 0;
     static int len = 0;
@@ -117,6 +149,9 @@ bool process_rx(uint8_t b, uint8_t cmd, uint8_t data[])
         state = START_BYTE;
         break;
     }
+        if(CODE_DEBUG_LEVEL == 1) {
+        Serial.println("Debug-print 3");
+        }
 
     return false;
 }
@@ -130,7 +165,7 @@ SSD1306Wire display (OLED_I2C_ADDR, OLED_SDA, OLED_SCL);
 HardwareSerial sensor(1); //  rxPin = 9; txPin = 10;
 
 static bool exchange_command(uint8_t cmd, uint8_t data[], int timeout)
-{
+{ 
     // create command buffer
     uint8_t buf[9];
     int len = prepare_tx(cmd, data, buf, sizeof(buf));
@@ -148,6 +183,9 @@ static bool exchange_command(uint8_t cmd, uint8_t data[], int timeout)
             }
         }
     }
+        if(CODE_DEBUG_LEVEL == 1) {
+        Serial.println("Debug-print 4");
+        }
 
     return false;
 }
@@ -165,6 +203,10 @@ static bool read_temp_co2(int *co2, int *temp)
         Serial.println(raw);
 #endif
     }
+        if(CODE_DEBUG_LEVEL == 1) {
+        Serial.println("Debug-print 5");
+        }
+
     return result;
 }
 bool process_rx(uint8_t b, uint8_t cmd, uint8_t data[]);
@@ -194,52 +236,90 @@ const lmic_pinmap lmic_pins = {
     .rst = 14,
     .dio = {26, 33, 32}  // Pins for the Heltec ESP32 Lora board/ TTGO Lora32 with 3D metal antenna
 };
-
+Adafruit_BME280 bme; 
 void do_send(osjob_t* j){
     // Payload to send (uplink)
-    delay(300000);    
-    int co2, temp;
-    if (read_temp_co2(&co2, &temp)) {
-        Serial.print("CO2:");
-        Serial.println(co2, DEC);
-        Serial.print("TEMP");
-        Serial.println(temp, DEC);
-    }
-
-     char message[110];
-    snprintf(message, sizeof(message), "{\"chipid\":%s,\"sensor\":\"BKS\",\"millis\":%d,\"data\":[\"%s\\
-",%d,\"_\",0,\"_\",0]}", esp_id, millis(), "co2", co2 );
-
+    //secondTick.attach(1,wtl); 
+    
     // Check if there is not a current TX/RX job running
     if (LMIC.opmode & OP_TXRXPEND) {
         Serial.println(F("OP_TXRXPEND, not sending"));
+        if(CODE_DEBUG_LEVEL == 1) {
+        Serial.println("Debug-print 7");
+        }
     } else {
+    int co2, temp;
+   
+    float Temp = bme.readTemperature();
+    float hum = bme.readHumidity();
+    
+    if (read_temp_co2(&co2, &temp)) {
+        Serial.println("*********************************************************************");
+        Serial.print("CO2:");
+        Serial.println(co2, DEC);
+        Serial.print("Temperature(DHT11/BME): ");
+        Serial.println(Temp, 2);
+        Serial.print("Humidity(DHT11/BME): ");
+        Serial.println(hum, 2);
+        Serial.println("*********************************************************************");
+                
+    
+      
+   /* char message[110];
+    snprintf(message, sizeof(message), "{\"chipid\":%s,\"sensor\":\"BKS\",\"millis\":%d,\"data\":[\"%s\\
+",%d,\"%s\",%f,\"%s\",%f]}", esp_id, millis(), "co2", co2,"Temp", Temp, "Hum", hum );*/
+char message[110];
+
+DynamicJsonBuffer jsonBuffer(200);
+JsonObject& root = jsonBuffer.createObject();
+
+root["Id"] = esp_id;
+root["Sensor"] = "BKS";
+String co2str = String(co2);
+String Tempstr = String(Temp);
+String humstr = String(hum);
+
+String JsonCO2 = String("Co2 " + co2str);  
+String JsonTemp = String("Temp " + Tempstr);
+String JsonHum = String("Hum " + humstr);
+
+JsonArray& data = root.createNestedArray("data");
+data.add(JsonCO2);
+data.add(JsonTemp);
+data.add(JsonHum);
+
+root.printTo(message);
+
+Serial.println(message);
         // Prepare upstream data transmission at the next possible time.
-        LMIC_setTxData2(1, (uint8_t*)message, strlen(message)-1, 0);
-        Serial.println(F("Sending uplink packet..."));
-        digitalWrite(LEDPIN, HIGH);
-        display.clear();
-        display.drawString (0, 0, "Sending uplink packet...");
-        display.drawString (0, 50, String (++counter));
-        display.display ();
+      LMIC_setTxData2(1, (uint8_t*)message, strlen(message), 0);
+      //LMIC_sendAlive();
+        Serial.println(F("Packet queued"));
+    }
+    // Next TX is scheduled after TX_COMPLETE event.
+}
        
     }
     // Next TX is scheduled after TX_COMPLETE event.
-    
+
 }
 
 void onEvent (ev_t ev) {
     if (ev == EV_TXCOMPLETE) {
         display.clear();
         display.drawString (0, 0, "EV_TXCOMPLETE event!");
-
+        
 
         Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
         if (LMIC.txrxFlags & TXRX_ACK) {
           Serial.println(F("Received ack"));
           display.drawString (0, 20, "Received ACK.");
+          if(CODE_DEBUG_LEVEL == 1) {
+          Serial.println("Debug-print 9");
         }
-
+          
+        }
+        
         if (LMIC.dataLen) {
           int i = 0;
           // data received in rx slot after tx
@@ -252,6 +332,9 @@ void onEvent (ev_t ev) {
             TTN_response[i] = LMIC.frame[LMIC.dataBeg+i];
           TTN_response[i] = 0;
           display.drawString (0, 32, String(TTN_response));
+          if(CODE_DEBUG_LEVEL == 1) {
+        Serial.println("Debug-print 10");
+        }
         }
 
         // Schedule next transmission
@@ -259,9 +342,12 @@ void onEvent (ev_t ev) {
         digitalWrite(LEDPIN, LOW);
         display.drawString (0, 50, String (counter));
         display.display ();
+        if(CODE_DEBUG_LEVEL == 1) {
+        Serial.println("Debug-print 11");
+        }
     }
 }
-
+/*
 int getChipRevision()
 {
   return (REG_READ(EFUSE_BLK0_RDATA3_REG) >> (EFUSE_RD_CHIP_VER_RESERVE_S)&&EFUSE_RD_CHIP_VER_RESERVE_V) ;
@@ -285,16 +371,20 @@ void printESPRevision() {
   Serial.print("Chip Revision from shift Operation ");
   Serial.println(REG_READ(EFUSE_BLK0_RDATA3_REG) >> 15, BIN);
 
+  if(CODE_DEBUG_LEVEL == 1) {
+        Serial.println("Debug-print 12");
+        }
 }
-
+*/
 void setup() {
     Serial.begin(115200);
-    secondTick.attach(1,wtl);
+    
     sensor.begin(9600, SERIAL_8N1, 23, 22);
+    dht.begin();
     delay(1500);   // Give time for the seral monitor to start up
     Serial.println(F("Starting..."));
 
-    printESPRevision();
+    //printESPRevision();
 
     uint64_t chipid;  
     chipid=ESP.getEfuseMac();//The chip ID is essentially its MAC address(length: 6 bytes).
@@ -319,7 +409,9 @@ void setup() {
 
    display.drawString (0, 0, "Init!");
    display.display ();
-
+if(CODE_DEBUG_LEVEL == 1) {
+        Serial.println("Debug-print 13");
+        }
     // LMIC init
     os_init();
 
@@ -364,7 +456,9 @@ void setup() {
     // Start job
     do_send(&sendjob);
 
-    
+    if(CODE_DEBUG_LEVEL == 1) {
+        Serial.println("Debug-print 14");
+        }
 }
 
 void loop() {

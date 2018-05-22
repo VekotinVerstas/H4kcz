@@ -1,38 +1,45 @@
 #include <Ticker.h>
-
+#include <esp.h>
 
 Ticker secondTick;
-      int wt = 0;
-void wtl(){
-  wt++;
-  if (wt == 70){
-     digitalWrite(D1, LOW);
-  delay(2000);
-  Serial.println("wt reset");
-  digitalWrite(D1, HIGH);
-  delay(2000);
+uint8_t oldpin = LOW;
+uint8_t resetTime = 10;
+uint32_t pinLowTime=0;
 
-    
-  }
-}
-
-void rst(){
-  
-  if (digitalRead(D5)== LOW){
-    Serial.println("pulssi vastaanotetu");
-    secondTick.attach(1,wtl);
-  }
+void resetMaster() {
+    digitalWrite(0, LOW);
+    pinLowTime = millis();
+    Serial.println("Watchdog time out. Reset master.");
 }
 
 void setup() {
-  pinMode(D5, INPUT_PULLUP);
-  pinMode(D1, OUTPUT);
   Serial.begin(115200);
-  secondTick.attach(1,wtl);
- digitalWrite(D1, HIGH);
+  pinMode(2, INPUT_PULLUP);
+  pinMode(0, OUTPUT);
+  Serial.println("Start watchdog");
+  Serial.print("222Reset watchdog countdown to ");
+  Serial.println(resetTime);
+  secondTick.attach(resetTime, resetMaster);
+  digitalWrite(0, HIGH);
 }
 
 void loop() {
-   rst();
-
+  uint8_t readpin = digitalRead(2);
+  if( (pinLowTime != 0) and (millis() - pinLowTime > 150) ) {
+    digitalWrite(0, HIGH);
+    pinLowTime=0;
+    Serial.print("111Reset watchdog countdown to ");
+    Serial.println(resetTime);
+    secondTick.attach(resetTime, resetMaster);    
+  }
+  
+  if ((readpin == LOW) && (oldpin==HIGH)) {
+    Serial.println("Watchdog reset pulse reseived.");
+    Serial.print("Reset watchdog countdown to ");
+    Serial.println(resetTime);
+    secondTick.attach(resetTime, resetMaster);
+  }
+oldpin=readpin;  
 }
+
+

@@ -14,7 +14,7 @@ uint8_t resetPin = 0;
 
 Ticker secondTick, msTick;
 uint8_t oldpin = LOW;
-uint16_t resetTime = 2; //13*60; //sec
+uint16_t resetTime = 13*60; // 13*60 sec = 13 min
 
 void startMasterReset() {
   digitalWrite(resetPin, LOW);

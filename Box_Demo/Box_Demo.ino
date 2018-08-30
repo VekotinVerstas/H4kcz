@@ -50,6 +50,8 @@ void setup () {
 
 void loop () {
   int openedCounter;
+
+  int eepromCounterValue;
   
   int Button_value = digitalRead(D3);
 
@@ -86,12 +88,14 @@ void loop () {
     EEPROM.commit();
   }
   Serial.println(EveryOpenCounter);
+
+  eepromCounterValue = EEPROM.read(addr); 
   
-  mqtt_send(MQTT_TOPIC, openedCounter);
+  mqtt_send(MQTT_TOPIC, openedCounter, eepromCounterValue);
  }
 
 }
-static void mqtt_send(const char *topic, int value) {
+static void mqtt_send(const char *topic, int value1, int value2) {
   if (!mqttClient.connected()) {
     mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
     mqttClient.connect(esp_id, MQTT_USER, MQTT_PASSWORD);
@@ -105,7 +109,8 @@ static void mqtt_send(const char *topic, int value) {
     root["millis"] = millis();
 
     JsonObject& data = root.createNestedObject("data");
-    data["Opened"] = value;
+    data["Opened"] = value1;
+    data["EepromCounter"] = value2;
 
     Serial.print("Publishing: ");
     root.prettyPrintTo(Serial);

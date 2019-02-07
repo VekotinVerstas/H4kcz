@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+#include <Bounce2.h>
 
 #include "settings.h"
 
@@ -16,6 +17,9 @@ uint8_t door_status = 0;
 
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
+Bounce debouncer1 = Bounce();
+Bounce debouncer2 = Bounce();
+Bounce debouncer3 = Bounce();
 
 void connectWifi() {
   int count = 0;
@@ -44,6 +48,13 @@ void setup() {
   pinMode(DOOR1, INPUT_PULLUP);        // sets the digital pin 0 as input
   pinMode(DOOR2, INPUT_PULLUP);        // sets the digital pin 0 as input
   pinMode(DOOR3, INPUT_PULLUP);
+  debouncer1.attach(DOOR1);
+  debouncer1.interval(200); // interval in ms
+  debouncer2.attach(DOOR2);
+  debouncer2.interval(200); // interval in ms
+  debouncer3.attach(DOOR3);
+  debouncer3.interval(30); // interval in ms
+
   pinMode(LED_PIN, OUTPUT);
 
   WiFi.mode(WIFI_STA);
@@ -69,7 +80,7 @@ static void mqtt_send(const char *topic, int value)
     data["door1"] = bitRead(value, 0);
     data["door2"] = bitRead(value, 1);
     data["door3"] = bitRead(value, 2);
-  
+
     //{"chipid":2057786,"":,"millis":964606330,"data":["door",25.21948,"_",0,"_",0]}
     //snprintf(jsonValue, sizeof(jsonValue), "{\"chipid\":%s,\"sensor\":\"button\",\"millis\":%d,\"data\":[\"door1\",%d,\"door2\",%d,\"door3\",%d]}", esp_id, millis(), bitRead(value, 0), bitRead(value, 1), bitRead(value, 2)  );
     Serial.print("Publishing ");
@@ -85,20 +96,25 @@ static void mqtt_send(const char *topic, int value)
 }
 
 void loop() {
+  // Update the Bounce instances :
+  debouncer1.update();
+  debouncer2.update();
+  debouncer3.update();
+  
   if ( WiFi.status() != WL_CONNECTED) {
     connectWifi();
   }
   else {
     uint8_t door_status_new = 0;
-    if (digitalRead(DOOR3) == LOW) {
+    if (debouncer3.read() == LOW) {
       digitalWrite(LED_PIN, HIGH);
     }
     else {
       digitalWrite(LED_PIN, LOW);
     }
-    door_status_new = digitalRead(DOOR1);
-    door_status_new += digitalRead(DOOR2) * 2;
-    door_status_new += (!digitalRead(DOOR3)) * 4;
+    door_status_new = debouncer1.read();
+    door_status_new += debouncer2.read() * 2;
+    door_status_new += (!debouncer3.read()) * 4;
     if ( door_status != door_status_new ) {
       door_status = door_status_new;
       Serial.print("Ovien tila: " );
@@ -107,4 +123,3 @@ void loop() {
     }
   }
 }
-
